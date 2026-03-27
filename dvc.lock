@@ -1,0 +1,92 @@
+schema: '2.0'
+stages:
+  scanpy:
+    cmd: python scripts/run_scanpy.py
+    deps:
+    - path: scripts/run_scanpy.py
+      hash: md5
+      md5: e3585c85e62a1a571632635f8d437dce
+      size: 922
+    - path: src/scrnaseq_lightgbm/preprocessing/scanpy_pipeline.py
+      hash: md5
+      md5: 89c13afaef4f98413c44f03011ff6182
+      size: 2424
+    params:
+      params.yaml:
+        paths:
+          processed: data/processed/pbmc3k_processed.h5ad
+          annotated: data/processed/pbmc3k_lgbm_annotated.h5ad
+          model: artifacts/models/lightgbm_model.txt
+          metrics: artifacts/metrics/metrics.json
+          figures: artifacts/figures
+        scanpy:
+          input_path:
+          dataset_name: pbmc3k
+          n_top_genes: 2000
+          n_pcs: 50
+          n_neighbors: 15
+          leiden_resolution: 1.0
+    outs:
+    - path: data/processed/pbmc3k_processed.h5ad
+      hash: md5
+      md5: f8651da7c3f1deea9fdf2d7c5269ef43
+      size: 6618216
+  lightgbm:
+    cmd: python scripts/run_lightgbm.py
+    deps:
+    - path: data/processed/pbmc3k_processed.h5ad
+      hash: md5
+      md5: f8651da7c3f1deea9fdf2d7c5269ef43
+      size: 6618216
+    - path: scripts/run_lightgbm.py
+      hash: md5
+      md5: d37a2ca0426b5badd39758b4fbbf569c
+      size: 1256
+    - path: src/scrnaseq_lightgbm/models/lightgbm_pipeline.py
+      hash: md5
+      md5: bd53422b6d9ef72f7f70d571c3e32b01
+      size: 4197
+    params:
+      params.yaml:
+        lightgbm:
+          feature_key: X_pca
+          label_key: leiden
+          test_size: 0.2
+          n_estimators: 100
+          learning_rate: 0.1
+        paths:
+          processed: data/processed/pbmc3k_processed.h5ad
+          annotated: data/processed/pbmc3k_lgbm_annotated.h5ad
+          model: artifacts/models/lightgbm_model.txt
+          metrics: artifacts/metrics/metrics.json
+          figures: artifacts/figures
+    outs:
+    - path: artifacts/metrics/metrics.json
+      hash: md5
+      md5: b5221502a89ade36f1b5fe38c90e70fe
+      size: 742
+    - path: artifacts/models/lightgbm_model.txt
+      hash: md5
+      md5: 2b71e950d674a5c61fb0751136dc7533
+      size: 2779796
+    - path: data/processed/pbmc3k_lgbm_annotated.h5ad
+      hash: md5
+      md5: ed52a45c7757a09ddbcf9dd1862af799
+      size: 6648104
+  visualize:
+    cmd: python scripts/plot_umap.py
+    deps:
+    - path: data/processed/pbmc3k_lgbm_annotated.h5ad
+      hash: md5
+      md5: ed52a45c7757a09ddbcf9dd1862af799
+      size: 6648104
+    - path: scripts/plot_umap.py
+      hash: md5
+      md5: 54d0242ff4ac00e4645d05c43fbdd37a
+      size: 1389
+    outs:
+    - path: artifacts/figures
+      hash: md5
+      md5: 1cacdf7f56e66f580dc7374df92e96bd.dir
+      size: 407942
+      nfiles: 5

@@ -1,0 +1,32 @@
+base:
+  random_seed: 42
+
+scanpy:
+  input_path: null
+  dataset_name: pbmc3k
+  n_top_genes: 2000
+  n_pcs: 50
+  n_neighbors: 15
+  leiden_resolution: 1.0
+
+
+lightgbm:
+  feature_key: X_pca
+  label_key: leiden
+  test_size: 0.2
+  n_estimators: 100
+  learning_rate: 0.1
+
+visualization:
+  color_keys:
+    - leiden
+    - predicted_cluster_lgbm
+    - confidence_lgbm
+    - prediction_matches_leiden
+
+paths:
+  processed: data/processed/pbmc3k_processed.h5ad
+  annotated: data/processed/pbmc3k_lgbm_annotated.h5ad
+  model: artifacts/models/lightgbm_model.txt
+  metrics: artifacts/metrics/metrics.json
+  figures: artifacts/figures
