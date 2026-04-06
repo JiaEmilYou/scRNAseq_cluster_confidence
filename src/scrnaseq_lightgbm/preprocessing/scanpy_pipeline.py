@@ -49,39 +49,58 @@ def run_scanpy_pipeline(
     else:
         if dataset_name == "pbmc3k":
             adata = sc.datasets.pbmc3k()
+        elif dataset_name == "pbmc68k_reduced":
+            adata = sc.datasets.pbmc68k_reduced()
+        elif dataset_name == "paul15":
+            adata = sc.datasets.paul15()
         else:
             raise ValueError(f"Unsupported built-in dataset: {dataset_name}")
 
     print("Loaded AnnData:")
     print(adata)
 
-    # Basic preprocessing
-    sc.pp.normalize_total(adata)
-    sc.pp.log1p(adata)
+    if input_path is not None or dataset_name in {"pbmc3k", "paul15"}:
+        # Raw-style preprocessing
+        sc.pp.normalize_total(adata, target_sum=1e4)
+        sc.pp.log1p(adata)
 
-    # Highly variable genes
-    sc.pp.highly_variable_genes(adata, n_top_genes=n_top_genes)
-    adata = adata[:, adata.var["highly_variable"]].copy()
+        sc.pp.highly_variable_genes(adata, n_top_genes=n_top_genes)
+        adata = adata[:, adata.var["highly_variable"]].copy()
 
-    print("\nAfter HVG filtering:")
-    print(adata)
-    print(f"adata.X shape: {adata.X.shape}")
+        print("\nAfter HVG filtering:")
+        print(adata)
+        print(f"adata.X shape: {adata.X.shape}")
 
-    # PCA
-    sc.pp.pca(adata, n_comps=n_pcs)
-    print(f"\nPCA shape: {adata.obsm['X_pca'].shape}")
+        sc.pp.pca(adata, n_comps=n_pcs)
+        print(f"\nPCA shape: {adata.obsm['X_pca'].shape}")
 
-    # Neighborhood graph
+    elif dataset_name == "pbmc68k_reduced":
+        print("\nUsing preprocessed pbmc68k_reduced dataset.")
+        print(f"adata.X shape: {adata.X.shape}")
+
+        if "X_pca" not in adata.obsm:
+            sc.pp.pca(adata, n_comps=n_pcs)
+            print(f"\nPCA shape: {adata.obsm['X_pca'].shape}")
+
+    else:
+        raise ValueError(f"Unsupported preprocessing logic for dataset: {dataset_name}")
+
+    # Recompute graph/clustering/UMAP for all datasets
     sc.pp.neighbors(adata, n_neighbors=n_neighbors, n_pcs=n_pcs)
-
-    # Clustering
-    sc.tl.leiden(adata)
-
-    # UMAP
+    sc.tl.leiden(adata, resolution=leiden_resolution)
     sc.tl.umap(adata)
 
     print("\nLeiden cluster sizes:")
     print(adata.obs["leiden"].value_counts())
+
+    adata.uns["pipeline_params"] = {
+        "dataset_name": dataset_name,
+        "input_path": str(input_path) if input_path is not None else None,
+        "n_top_genes": n_top_genes,
+        "n_pcs": n_pcs,
+        "n_neighbors": n_neighbors,
+        "leiden_resolution": leiden_resolution,
+    }
 
     # Save processed AnnData
     adata.write(output_path)

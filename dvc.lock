@@ -5,88 +5,91 @@ stages:
     deps:
     - path: scripts/run_scanpy.py
       hash: md5
-      md5: e3585c85e62a1a571632635f8d437dce
-      size: 922
+      md5: 713f8727eb0e608749945f1850292f3e
+      size: 1041
     - path: src/scrnaseq_lightgbm/preprocessing/scanpy_pipeline.py
       hash: md5
-      md5: 89c13afaef4f98413c44f03011ff6182
-      size: 2424
+      md5: 9c52f7cabc7c36770a6ff55b88f9bceb
+      size: 3448
     params:
       params.yaml:
         paths:
-          processed: data/processed/pbmc3k_processed.h5ad
-          annotated: data/processed/pbmc3k_lgbm_annotated.h5ad
+          processed: data/processed/processed.h5ad
+          annotated: data/processed/annotated.h5ad
           model: artifacts/models/lightgbm_model.txt
           metrics: artifacts/metrics/metrics.json
           figures: artifacts/figures
         scanpy:
           input_path:
-          dataset_name: pbmc3k
+          dataset_name: paul15
           n_top_genes: 2000
           n_pcs: 50
           n_neighbors: 15
-          leiden_resolution: 1.0
+          leiden_resolution: 2.5
     outs:
-    - path: data/processed/pbmc3k_processed.h5ad
+    - path: data/processed/processed.h5ad
       hash: md5
-      md5: f8651da7c3f1deea9fdf2d7c5269ef43
-      size: 6618216
+      md5: 8a453779a51eb650b2dbec5685b62f87
+      size: 24510604
   lightgbm:
     cmd: python scripts/run_lightgbm.py
     deps:
-    - path: data/processed/pbmc3k_processed.h5ad
+    - path: data/processed/processed.h5ad
       hash: md5
-      md5: f8651da7c3f1deea9fdf2d7c5269ef43
-      size: 6618216
+      md5: 8a453779a51eb650b2dbec5685b62f87
+      size: 24510604
     - path: scripts/run_lightgbm.py
       hash: md5
-      md5: d37a2ca0426b5badd39758b4fbbf569c
-      size: 1256
+      md5: 46ee1c968a29545515ebc62523baae90
+      size: 1520
     - path: src/scrnaseq_lightgbm/models/lightgbm_pipeline.py
       hash: md5
-      md5: bd53422b6d9ef72f7f70d571c3e32b01
-      size: 4197
+      md5: 8d8ca6f04dabcd62bb1437e29e1c2b56
+      size: 7117
     params:
       params.yaml:
+        evaluation:
+          low_confidence_threshold: 0.6
         lightgbm:
           feature_key: X_pca
           label_key: leiden
           test_size: 0.2
+          random_state: 42
           n_estimators: 100
           learning_rate: 0.1
         paths:
-          processed: data/processed/pbmc3k_processed.h5ad
-          annotated: data/processed/pbmc3k_lgbm_annotated.h5ad
+          processed: data/processed/processed.h5ad
+          annotated: data/processed/annotated.h5ad
           model: artifacts/models/lightgbm_model.txt
           metrics: artifacts/metrics/metrics.json
           figures: artifacts/figures
     outs:
     - path: artifacts/metrics/metrics.json
       hash: md5
-      md5: b5221502a89ade36f1b5fe38c90e70fe
-      size: 742
+      md5: f8baaef1b4791a1d1d5a51263828fa9e
+      size: 1041
     - path: artifacts/models/lightgbm_model.txt
       hash: md5
-      md5: 2b71e950d674a5c61fb0751136dc7533
-      size: 2779796
-    - path: data/processed/pbmc3k_lgbm_annotated.h5ad
+      md5: 97d4b28f5b0dd39ecea13ea54c2ccc71
+      size: 5686177
+    - path: data/processed/annotated.h5ad
       hash: md5
-      md5: ed52a45c7757a09ddbcf9dd1862af799
-      size: 6648104
+      md5: f4a959032cb727c38ae4d4c0dd6072ae
+      size: 24543906
   visualize:
     cmd: python scripts/plot_umap.py
     deps:
-    - path: data/processed/pbmc3k_lgbm_annotated.h5ad
+    - path: data/processed/annotated.h5ad
       hash: md5
-      md5: ed52a45c7757a09ddbcf9dd1862af799
-      size: 6648104
+      md5: f4a959032cb727c38ae4d4c0dd6072ae
+      size: 24543906
     - path: scripts/plot_umap.py
       hash: md5
-      md5: 54d0242ff4ac00e4645d05c43fbdd37a
-      size: 1389
+      md5: 172b002db782a3ff7e220e364ab4d33f
+      size: 1755
     outs:
     - path: artifacts/figures
       hash: md5
-      md5: 1cacdf7f56e66f580dc7374df92e96bd.dir
-      size: 407942
+      md5: cf5a310b69685f3bf343ee66f800c71c.dir
+      size: 1004950
       nfiles: 5

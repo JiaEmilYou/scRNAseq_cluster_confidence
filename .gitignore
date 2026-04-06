@@ -21,6 +21,7 @@ venv/
 data/
 models/
 artifacts/
+mlruns/
 
 # OS files
 .DS_Store

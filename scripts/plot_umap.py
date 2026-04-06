@@ -12,9 +12,17 @@ def main() -> None:
 
     input_path = project_root / paths["annotated"]
     output_dir = project_root / paths["figures"]
-    output_dir.mkdir(parents=True, exist_ok=True)
+    
 
     adata = sc.read_h5ad(input_path)
+
+    pipeline_params = adata.uns.get("pipeline_params", {})
+    dataset_name = pipeline_params.get("dataset_name", "unknown_dataset")
+    leiden_resolution = pipeline_params.get("leiden_resolution", "unknown_resolution")
+
+    resolution_str = str(leiden_resolution).replace(".", "p")
+    output_dir = output_dir / dataset_name / f"res_{resolution_str}"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     print("Loaded annotated AnnData:")
     print(adata)

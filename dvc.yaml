@@ -5,27 +5,29 @@ stages:
     - scripts/run_scanpy.py
     - src/scrnaseq_lightgbm/preprocessing/scanpy_pipeline.py
     params:
-    - paths
     - scanpy
+    - paths
     outs:
-    - data/processed/pbmc3k_processed.h5ad
+    - data/processed/processed.h5ad
   lightgbm:
     cmd: python scripts/run_lightgbm.py
     deps:
-    - data/processed/pbmc3k_processed.h5ad
+    - data/processed/processed.h5ad
     - scripts/run_lightgbm.py
     - src/scrnaseq_lightgbm/models/lightgbm_pipeline.py
     params:
     - lightgbm
+    - evaluation
     - paths
     outs:
-    - artifacts/metrics/metrics.json
-    - artifacts/models/lightgbm_model.txt
-    - data/processed/pbmc3k_lgbm_annotated.h5ad
+      - artifacts/models/lightgbm_model.txt
+      - data/processed/annotated.h5ad
+    metrics:
+      - artifacts/metrics/metrics.json
   visualize:
     cmd: python scripts/plot_umap.py
     deps:
-    - data/processed/pbmc3k_lgbm_annotated.h5ad
+    - data/processed/annotated.h5ad
     - scripts/plot_umap.py
     outs:
     - artifacts/figures
