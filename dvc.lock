@@ -85,8 +85,8 @@ stages:
       size: 24543906
     - path: scripts/plot_umap.py
       hash: md5
-      md5: 172b002db782a3ff7e220e364ab4d33f
-      size: 1755
+      md5: 7a02aeb58e322e9777ceb162e82f8cb7
+      size: 2119
     outs:
     - path: artifacts/figures
       hash: md5

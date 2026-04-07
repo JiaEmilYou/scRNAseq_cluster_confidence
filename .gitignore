@@ -22,6 +22,8 @@ data/
 models/
 artifacts/
 mlruns/
+mlflow.db
+results/
 
 # OS files
 .DS_Store

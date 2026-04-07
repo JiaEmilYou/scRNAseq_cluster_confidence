@@ -1,6 +1,7 @@
 from pathlib import Path
 import scanpy as sc
 import yaml
+import shutil
 
 def main() -> None:
     project_root = Path(__file__).resolve().parents[1]
@@ -12,7 +13,7 @@ def main() -> None:
 
     input_path = project_root / paths["annotated"]
     output_dir = project_root / paths["figures"]
-    
+    archive_base_dir = project_root / "results" / "figures"
 
     adata = sc.read_h5ad(input_path)
 
@@ -22,7 +23,10 @@ def main() -> None:
 
     resolution_str = str(leiden_resolution).replace(".", "p")
     output_dir = output_dir / dataset_name / f"res_{resolution_str}"
+    archive_dir = archive_base_dir / dataset_name / f"res_{resolution_str}"
+
     output_dir.mkdir(parents=True, exist_ok=True)
+    archive_dir.mkdir(parents=True, exist_ok=True)
 
     print("Loaded annotated AnnData:")
     print(adata)
@@ -51,6 +55,10 @@ def main() -> None:
         save="_combined.png",
         show=False
     )
+    for fig_file in output_dir.glob("*.png"):
+        shutil.copy2(fig_file, archive_dir / fig_file.name)
+
+    print(f"Saved figure copies to: {archive_dir}")
 
 
 if __name__ == "__main__":
