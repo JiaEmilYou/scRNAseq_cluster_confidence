@@ -40,12 +40,12 @@ stages:
       size: 24510604
     - path: scripts/run_lightgbm.py
       hash: md5
-      md5: 46ee1c968a29545515ebc62523baae90
-      size: 1520
+      md5: b990bf67412bb88b4f4587bfbdf0c252
+      size: 1562
     - path: src/scrnaseq_lightgbm/models/lightgbm_pipeline.py
       hash: md5
-      md5: 8d8ca6f04dabcd62bb1437e29e1c2b56
-      size: 7117
+      md5: dd94d89e39f2561d6b0b3829111739cb
+      size: 15756
     params:
       params.yaml:
         evaluation:
@@ -57,6 +57,8 @@ stages:
           random_state: 42
           n_estimators: 100
           learning_rate: 0.1
+          cv_folds: 5
+          cv_repeats: 3
         paths:
           processed: data/processed/processed.h5ad
           annotated: data/processed/annotated.h5ad
@@ -66,23 +68,23 @@ stages:
     outs:
     - path: artifacts/metrics/metrics.json
       hash: md5
-      md5: f8baaef1b4791a1d1d5a51263828fa9e
-      size: 1041
+      md5: 8a5296c55012cd06ab2acdb2b6b253b5
+      size: 2025
     - path: artifacts/models/lightgbm_model.txt
       hash: md5
       md5: 97d4b28f5b0dd39ecea13ea54c2ccc71
       size: 5686177
     - path: data/processed/annotated.h5ad
       hash: md5
-      md5: f4a959032cb727c38ae4d4c0dd6072ae
-      size: 24543906
+      md5: 0a5b6729f2d97f1ba285373617112f60
+      size: 25070586
   visualize:
     cmd: python scripts/plot_umap.py
     deps:
     - path: data/processed/annotated.h5ad
       hash: md5
-      md5: f4a959032cb727c38ae4d4c0dd6072ae
-      size: 24543906
+      md5: 0a5b6729f2d97f1ba285373617112f60
+      size: 25070586
     - path: scripts/plot_umap.py
       hash: md5
       md5: 7a02aeb58e322e9777ceb162e82f8cb7

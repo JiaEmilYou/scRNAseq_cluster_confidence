@@ -13,6 +13,8 @@ lightgbm:
   random_state: 42
   n_estimators: 100
   learning_rate: 0.1
+  cv_folds: 5
+  cv_repeats: 3
 
 evaluation:
   low_confidence_threshold: 0.6

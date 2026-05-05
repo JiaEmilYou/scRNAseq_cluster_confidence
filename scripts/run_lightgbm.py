@@ -35,6 +35,7 @@ def main() -> None:
         n_estimators=lgb_params["n_estimators"],
         learning_rate=lgb_params["learning_rate"],
         low_confidence_threshold=eval_params["low_confidence_threshold"],
+        cv_folds=lgb_params["cv_folds"],
         dataset_name=scanpy_params["dataset_name"],
         leiden_resolution=scanpy_params["leiden_resolution"],
     )
