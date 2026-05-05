@@ -59,6 +59,13 @@ def run_lightgbm_pipeline(
         columns=[f"{feature_key}_{i}" for i in range(adata.obsm[feature_key].shape[1])]
     )
     y = adata.obs[label_key].astype(str)
+    class_labels = np.array(sorted(y.unique()))
+    n_classes = len(class_labels)
+    if n_classes < 2:
+        raise ValueError(
+            f"Need at least two classes in '{label_key}' to train LightGBM; "
+            f"found {n_classes}."
+        )
 
     print("Loaded processed AnnData:")
     print(adata)
@@ -67,6 +74,17 @@ def run_lightgbm_pipeline(
     print("\nLabel counts:")
     print(y.value_counts())
 
+    min_class_size = y.value_counts().min()
+    if min_class_size < 2:
+        raise ValueError(
+            f"Each class in '{label_key}' needs at least two cells for a "
+            f"stratified train/test split; smallest class has {min_class_size}."
+        )
+    if cv_folds > min_class_size:
+        raise ValueError(
+            f"cv_folds={cv_folds} is too large for the smallest class "
+            f"(size={min_class_size})."
+        )
 
     #--- train/test split ---
     X_train, X_test, y_train, y_test = train_test_split(
@@ -100,13 +118,6 @@ def run_lightgbm_pipeline(
     with mlflow.start_run(run_name=run_name):
 
         # --- cross-validation evaluation ---
-        min_class_size = y.value_counts().min()
-        if cv_folds > min_class_size:
-            raise ValueError(
-                f"cv_folds={cv_folds} is too large for the smallest class "
-                f"(size={min_class_size})."
-            )
-        
         cv_accuracies = []
         cv_macro_f1s = []
         cv_mean_confidences = []
@@ -226,7 +237,7 @@ def run_lightgbm_pipeline(
         if leiden_resolution is not None:
             mlflow.log_param("leiden_resolution", leiden_resolution)
 
-        # --- train ---
+        # --- train/test sanity-check model ---
         model.fit(X_train, y_train)
 
         # --- evaluate ---
@@ -252,28 +263,57 @@ def run_lightgbm_pipeline(
         print(f"Mean test confidence: {mean_confidence_test:.4f}")
         print(f"Low-confidence fraction (test): {low_confidence_fraction_test:.4f}")
 
-    
+        # --- out-of-fold per-cell predictions ---
+        # Each cell is predicted by a model that did not train on that cell.
+        oof_probs = np.zeros((X.shape[0], n_classes), dtype=float)
+        oof_folds = np.zeros(X.shape[0], dtype=int)
 
-        # --- add predictions to adata ---
-        probs_all = model.predict_proba(X)
-        preds_all = model.predict(X)
+        skf_oof = StratifiedKFold(
+            n_splits=cv_folds,
+            shuffle=True,
+            random_state=random_state,
+        )
 
-        adata.obsm["probs_lgbm"] = probs_all
-        adata.uns["probs_lgbm_columns"] = model.classes_.astype(str).tolist()
+        for fold_idx, (train_idx, test_idx) in enumerate(skf_oof.split(X, y), start=1):
+            X_train_oof = X.iloc[train_idx]
+            X_test_oof = X.iloc[test_idx]
+            y_train_oof = y.iloc[train_idx]
 
-        adata.obs["predicted_cluster_lgbm"] = preds_all.astype(str)
-        adata.obs["confidence_lgbm"] = probs_all.max(axis=1)
+            model_oof = lgb.LGBMClassifier(
+                n_estimators=n_estimators,
+                learning_rate=learning_rate,
+                random_state=random_state + fold_idx,
+            )
+            model_oof.fit(X_train_oof, y_train_oof)
 
-        entropy = -np.sum(probs_all * np.log(probs_all + 1e-12), axis=1)
+            fold_probs = model_oof.predict_proba(X_test_oof)
+            fold_prob_df = pd.DataFrame(
+                fold_probs,
+                index=X_test_oof.index,
+                columns=model_oof.classes_.astype(str),
+            ).reindex(columns=class_labels, fill_value=0.0)
+
+            oof_probs[test_idx, :] = fold_prob_df.to_numpy()
+            oof_folds[test_idx] = fold_idx
+
+        oof_preds = class_labels[np.argmax(oof_probs, axis=1)]
+
+        adata.obsm["probs_lgbm"] = oof_probs
+        adata.uns["probs_lgbm_columns"] = class_labels.astype(str).tolist()
+        adata.uns["probs_lgbm_source"] = "out_of_fold"
+
+        adata.obs["oof_fold_lgbm"] = oof_folds
+        adata.obs["predicted_cluster_lgbm"] = oof_preds.astype(str)
+        adata.obs["confidence_lgbm"] = oof_probs.max(axis=1)
+
+        entropy = -np.sum(oof_probs * np.log(oof_probs + 1e-12), axis=1)
         adata.obs["entropy_lgbm"] = entropy
 
         # --- margin (top1 - top2) ---
-        sorted_probs = np.sort(probs_all, axis=1)
+        sorted_probs = np.sort(oof_probs, axis=1)
         margin = sorted_probs[:, -1] - sorted_probs[:, -2]
         adata.obs["margin_lgbm"] = margin
 
-
-        n_classes = probs_all.shape[1]
         entropy_norm = entropy / np.log(n_classes)
 
         mean_entropy_norm_all = float(np.mean(entropy_norm))
@@ -302,8 +342,21 @@ def run_lightgbm_pipeline(
         mlflow.log_metric("p95_entropy_norm_all_cells", p95_entropy_norm_all)
         mlflow.log_metric("p99_entropy_norm_all_cells", p99_entropy_norm_all)
 
+        oof_accuracy = accuracy_score(y, oof_preds)
+        oof_macro_f1 = f1_score(y, oof_preds, average="macro")
+        mlflow.log_metric("oof_accuracy", oof_accuracy)
+        mlflow.log_metric("oof_macro_f1", oof_macro_f1)
+
+        # --- final model for reuse ---
+        final_model = lgb.LGBMClassifier(
+            n_estimators=n_estimators,
+            learning_rate=learning_rate,
+            random_state=random_state,
+        )
+        final_model.fit(X, y)
+
         # --- save ouputs ---
-        model.booster_.save_model(str(model_path))
+        final_model.booster_.save_model(str(model_path))
         adata.write(str(output_h5ad_path))
 
         run_tag = run_name
@@ -345,6 +398,9 @@ def run_lightgbm_pipeline(
             "macro_f1": float(macro_f1),
             "mean_confidence_test": mean_confidence_test,
             "low_confidence_fraction_test": low_confidence_fraction_test,
+            "oof_accuracy": float(oof_accuracy),
+            "oof_macro_f1": float(oof_macro_f1),
+            "probs_lgbm_source": "out_of_fold",
             "mean_confidence_all_cells": float(np.mean(adata.obs["confidence_lgbm"])),
             "min_confidence_all_cells": float(np.min(adata.obs["confidence_lgbm"])),
             "max_confidence_all_cells": float(np.max(adata.obs["confidence_lgbm"])),
@@ -376,7 +432,7 @@ def run_lightgbm_pipeline(
 
         print(f"Saved metrics to: {metrics_path}")
 
-        mlflow.sklearn.log_model(model, "lightgbm_model")
+        mlflow.sklearn.log_model(final_model, "lightgbm_model")
         mlflow.log_artifact(str(metrics_path))
         mlflow.log_artifact(str(output_h5ad_path))
 
